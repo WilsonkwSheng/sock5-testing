@@ -1,0 +1,12 @@
+{
+  "name": "warp-playwright-warp-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ubuntu + Cloudflare WARP local proxy + gost + Playwright proof of concept",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "playwright": "^1.53.0"
+  }
+}
