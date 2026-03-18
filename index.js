@@ -5,8 +5,22 @@ const { promisify } = require("node:util");
 const execFileAsync = promisify(execFile);
 
 const DIRECT_URL = process.env.DIRECT_URL || "https://ifconfig.me/ip";
-const PROXY_URL = process.env.PROXY_URL || "socks5://127.0.0.1:1080";
+const CURL_PROXY_URL = process.env.CURL_PROXY_URL || "socks5h://127.0.0.1:1080";
+const PLAYWRIGHT_PROXY_URL = process.env.PLAYWRIGHT_PROXY_URL || "socks5://127.0.0.1:1080";
 const PROXY_TEST_URL = process.env.PROXY_TEST_URL || "https://ifconfig.me/ip";
+const PLAYWRIGHT_PROXY_HOST = process.env.PLAYWRIGHT_PROXY_HOST || "127.0.0.1";
+const DISABLE_PLAYWRIGHT_LOCAL_DNS = process.env.DISABLE_PLAYWRIGHT_LOCAL_DNS === "1";
+
+function getPlaywrightLaunchArgs() {
+  if (DISABLE_PLAYWRIGHT_LOCAL_DNS) {
+    return [];
+  }
+
+  // Allow Chromium to reach the local SOCKS proxy, but force destination
+  // hostname resolution away from the local resolver.
+  const hostResolverRules = `MAP * ~NOTFOUND , EXCLUDE ${PLAYWRIGHT_PROXY_HOST}`;
+  return [`--host-resolver-rules=${hostResolverRules}`];
+}
 
 async function runCurl(args, label) {
   try {
@@ -29,8 +43,9 @@ async function runCurl(args, label) {
 async function runPlaywright() {
   const browser = await chromium.launch({
     headless: true,
+    args: getPlaywrightLaunchArgs(),
     proxy: {
-      server: PROXY_URL,
+      server: PLAYWRIGHT_PROXY_URL,
     },
   });
 
@@ -46,12 +61,14 @@ async function runPlaywright() {
 }
 
 async function main() {
-  console.log("DIRECT_URL:", DIRECT_URL);
-  console.log("PROXY_URL :", PROXY_URL);
-  console.log("TEST_URL  :", PROXY_TEST_URL);
+  console.log("DIRECT_URL :", DIRECT_URL);
+  console.log("CURL_PROXY_URL      :", CURL_PROXY_URL);
+  console.log("PLAYWRIGHT_PROXY_URL:", PLAYWRIGHT_PROXY_URL);
+  console.log("DISABLE_PLAYWRIGHT_LOCAL_DNS:", DISABLE_PLAYWRIGHT_LOCAL_DNS ? "1" : "0");
+  console.log("TEST_URL            :", PROXY_TEST_URL);
 
   await runCurl(["-sS", DIRECT_URL], "DIRECT CONTAINER IP");
-  await runCurl(["-sS", "--proxy", PROXY_URL, PROXY_TEST_URL], "PROXIED IP THROUGH WARP SOCKS");
+  await runCurl(["-sS", "--proxy", CURL_PROXY_URL, PROXY_TEST_URL], "PROXIED IP THROUGH WARP SOCKS");
 
   try {
     await runPlaywright();
